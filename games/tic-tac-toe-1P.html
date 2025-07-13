@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tic Tac Toe - Player vs Computer</title>
+    <style>
+        :root {
+            --bg-color: #1a1a2e;
+            --text-color: #e6e6e6;
+            --primary-color: #4cc9f0;
+            --secondary-color: #f72585;
+            --board-color: #16213e;
+            --cell-color: #0f3460;
+            --win-color: #4ad66d;
+            --modal-bg: rgba(0, 0, 0, 0.8);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+            text-align: center;
+            color: var(--primary-color);
+            text-shadow: 0 0 10px rgba(76, 201, 240, 0.5);
+        }
+
+        .game-container {
+            width: 100%;
+            max-width: 500px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .status {
+            font-size: 1.5rem;
+            font-weight: bold;
+            height: 30px;
+            text-align: center;
+            margin-bottom: 10px;
+            color: var(--secondary-color);
+            transition: all 0.3s ease;
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 10px;
+            width: 100%;
+            max-width: 400px;
+            aspect-ratio: 1/1;
+            background-color: var(--board-color);
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .cell {
+            background-color: var(--cell-color);
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cell:hover {
+            transform: scale(1.02);
+            box-shadow: 0 0 10px rgba(76, 201, 240, 0.3);
+        }
+
+        .cell.x::before, .cell.x::after,
+        .cell.o::before {
+            content: '';
+            position: absolute;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            width: 60%;
+            height: 60%;
+            animation: appear 0.3s ease-out;
+        }
+
+        .cell.x::before {
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%234cc9f0"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>');
+        }
+
+        .cell.x::after {
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%234cc9f0"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>');
+            transform: rotate(45deg);
+            opacity: 0.7;
+        }
+
+        .cell.o::before {
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23f72585"><circle cx="12" cy="12" r="10"/></svg>');
+        }
+
+        .cell.win {
+            background-color: var(--win-color);
+            animation: pulse 1s infinite;
+        }
+
+        .cell.disabled {
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            width: 100%;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: var(--text-color);
+        }
+
+        .reset-btn {
+            background-color: var(--secondary-color);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        /* Modal styles */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--modal-bg);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .modal-content {
+            background-color: var(--board-color);
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            transform: scale(0.8);
+            transition: transform 0.3s ease;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal.active .modal-content {
+            transform: scale(1);
+        }
+
+        .modal h2 {
+            margin-bottom: 20px;
+            color: var(--primary-color);
+        }
+
+        .modal-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .modal-btn {
+            padding: 10px 20px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .x-btn {
+            background-color: var(--primary-color);
+            color: var(--text-color);
+        }
+
+        .o-btn {
+            background-color: var(--secondary-color);
+            color: var(--text-color);
+        }
+
+        .modal-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Score display */
+        .score-container {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            max-width: 400px;
+            margin-bottom: 20px;
+            background-color: var(--board-color);
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .score {
+            text-align: center;
+        }
+
+        .score-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        /* Animations */
+        @keyframes appear {
+            from {
+                transform: scale(0) rotate(180deg);
+                opacity: 0;
+            }
+            to {
+                transform: scale(1) rotate(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(74, 214, 109, 0.7);
+            }
+            70% {
+                transform: scale(1.05);
+                box-shadow: 0 0 0 10px rgba(74, 214, 109, 0);
+            }
+            100% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(74, 214, 109, 0);
+            }
+        }
+
+        @keyframes computerThinking {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 500px) {
+            h1 {
+                font-size: 1.5rem;
+            }
+            
+            .status {
+                font-size: 1.2rem;
+            }
+            
+            .board {
+                max-width: 300px;
+            }
+            
+            button {
+                padding: 8px 15px;
+                font-size: 0.9rem;
+            }
+        }
+
+        @media (max-width: 350px) {
+            .board {
+                max-width: 250px;
+            }
+            
+            .modal-buttons {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>Tic Tac Toe</h1>
+        
+        <div class="score-container">
+            <div class="score">
+                <div>Player</div>
+                <div class="score-value" id="playerScore">0</div>
+            </div>
+            <div class="score">
+                <div>Computer</div>
+                <div class="score-value" id="computerScore">0</div>
+            </div>
+            <div class="score">
+                <div>Draws</div>
+                <div class="score-value" id="drawScore">0</div>
+            </div>
+        </div>
+        
+        <div class="status" id="status">Choose X or O to begin</div>
+        <div class="board" id="board">
+            <div class="cell" data-index="0"></div>
+            <div class="cell" data-index="1"></div>
+            <div class="cell" data-index="2"></div>
+            <div class="cell" data-index="3"></div>
+            <div class="cell" data-index="4"></div>
+            <div class="cell" data-index="5"></div>
+            <div class="cell" data-index="6"></div>
+            <div class="cell" data-index="7"></div>
+            <div class="cell" data-index="8"></div>
+        </div>
+        <div class="controls">
+            <button class="reset-btn" id="resetBtn">Reset Game</button>
+        </div>
+    </div>
+
+    <!-- Player selection modal -->
+    <div class="modal" id="playerSelectModal">
+        <div class="modal-content">
+            <h2>Choose Your Symbol</h2>
+            <p>Do you want to play as X or O?</p>
+            <div class="modal-buttons">
+                <button class="modal-btn x-btn" id="xBtn">Play as X</button>
+                <button class="modal-btn o-btn" id="oBtn">Play as O</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const board = document.getElementById('board');
+            const cells = document.querySelectorAll('.cell');
+            const status = document.getElementById('status');
+            const resetBtn = document.getElementById('resetBtn');
+            const playerSelectModal = document.getElementById('playerSelectModal');
+            const xBtn = document.getElementById('xBtn');
+            const oBtn = document.getElementById('oBtn');
+            const playerScoreEl = document.getElementById('playerScore');
+            const computerScoreEl = document.getElementById('computerScore');
+            const drawScoreEl = document.getElementById('drawScore');
+            
+            let currentPlayer = 'x';
+            let gameState = ['', '', '', '', '', '', '', '', ''];
+            let gameActive = false;
+            let playerSymbol = '';
+            let computerSymbol = '';
+            let playerScore = 0;
+            let computerScore = 0;
+            let drawScore = 0;
+            
+            const winningConditions = [
+                [0, 1, 2], [3, 4, 5], [6, 7, 8], // rows
+                [0, 3, 6], [1, 4, 7], [2, 5, 8], // columns
+                [0, 4, 8], [2, 4, 6]             // diagonals
+            ];
+            
+            // Show player selection modal
+            playerSelectModal.classList.add('active');
+            
+            // Initialize the game
+            function initGame() {
+                gameState = ['', '', '', '', '', '', '', '', ''];
+                cells.forEach(cell => {
+                    cell.classList.remove('x', 'o', 'win', 'disabled');
+                });
+                
+                if (playerSymbol === 'x') {
+                    currentPlayer = 'x';
+                    updateStatus("Your turn (X)");
+                } else {
+                    currentPlayer = 'x'; // Computer starts if player is O
+                    updateStatus("Computer's turn (X)");
+                    setTimeout(computerMove, 800); // Delay for better UX
+                }
+                
+                gameActive = true;
+            }
+            
+            // Handle cell click
+            function handleCellClick(e) {
+                if (!gameActive) return;
+                
+                const clickedCell = e.target;
+                const clickedCellIndex = parseInt(clickedCell.getAttribute('data-index'));
+                
+                // If cell already filled, ignore click
+                if (gameState[clickedCellIndex] !== '' || currentPlayer !== playerSymbol) return;
+                
+                // Update game state and UI
+                makeMove(clickedCellIndex, playerSymbol);
+                
+                // Check for win or draw
+                checkResult();
+                
+                // If game is still active and it's computer's turn
+                if (gameActive && currentPlayer === computerSymbol) {
+                    setTimeout(computerMove, 800); // Delay for better UX
+                }
+            }
+            
+            // Computer makes a move
+            function computerMove() {
+                if (!gameActive || currentPlayer !== computerSymbol) return;
+                
+                // Simple AI - first try to win, then block player, then random move
+                let move = findWinningMove(computerSymbol) || 
+                           findWinningMove(playerSymbol) || 
+                           findBestMove();
+                
+                makeMove(move, computerSymbol);
+                checkResult();
+            }
+            
+            // Find a winning move for the given symbol
+            function findWinningMove(symbol) {
+                for (let condition of winningConditions) {
+                    const [a, b, c] = condition;
+                    // Check if two in a row with one empty
+                    if (gameState[a] === symbol && gameState[b] === symbol && gameState[c] === '') return c;
+                    if (gameState[a] === symbol && gameState[c] === symbol && gameState[b] === '') return b;
+                    if (gameState[b] === symbol && gameState[c] === symbol && gameState[a] === '') return a;
+                }
+                return null;
+            }
+            
+            // Find best available move (center, corners, then edges)
+            function findBestMove() {
+                // Try center first
+                if (gameState[4] === '') return 4;
+                
+                // Try corners
+                const corners = [0, 2, 6, 8];
+                const availableCorners = corners.filter(index => gameState[index] === '');
+                if (availableCorners.length > 0) {
+                    return availableCorners[Math.floor(Math.random() * availableCorners.length)];
+                }
+                
+                // Try edges
+                const edges = [1, 3, 5, 7];
+                const availableEdges = edges.filter(index => gameState[index] === '');
+                if (availableEdges.length > 0) {
+                    return availableEdges[Math.floor(Math.random() * availableEdges.length)];
+                }
+                
+                return null; // Shouldn't happen as we check for draw first
+            }
+            
+            // Make a move (for both player and computer)
+            function makeMove(index, symbol) {
+                gameState[index] = symbol;
+                cells[index].classList.add(symbol);
+                
+                // Disable cell after move
+                cells[index].classList.add('disabled');
+                
+                // Switch player
+                currentPlayer = currentPlayer === 'x' ? 'o' : 'x';
+                
+                // Update status
+                if (symbol === playerSymbol) {
+                    updateStatus("Computer's turn (" + computerSymbol.toUpperCase() + ")");
+                } else {
+                    updateStatus("Your turn (" + playerSymbol.toUpperCase() + ")");
+                }
+            }
+            
+            // Check if the current player has won
+            function checkResult() {
+                let roundWon = false;
+                let winner = '';
+                
+                for (let condition of winningConditions) {
+                    const [a, b, c] = condition;
+                    
+                    if (gameState[a] === '' || gameState[b] === '' || gameState[c] === '') continue;
+                    
+                    if (gameState[a] === gameState[b] && gameState[b] === gameState[c]) {
+                        roundWon = true;
+                        winner = gameState[a];
+                        highlightWinningCells(condition);
+                        break;
+                    }
+                }
+                
+                if (roundWon) {
+                    if (winner === playerSymbol) {
+                        updateStatus("You win!");
+                        playerScore++;
+                        playerScoreEl.textContent = playerScore;
+                    } else {
+                        updateStatus("Computer wins!");
+                        computerScore++;
+                        computerScoreEl.textContent = computerScore;
+                    }
+                    gameActive = false;
+                    
+                    // Start new round after a delay
+                    setTimeout(startNewRound, 2000);
+                    return;
+                }
+                
+                // Check for draw
+                if (!gameState.includes('')) {
+                    updateStatus("Game ended in a draw!");
+                    drawScore++;
+                    drawScoreEl.textContent = drawScore;
+                    gameActive = false;
+                    
+                    // Start new round after a delay
+                    setTimeout(startNewRound, 2000);
+                    return;
+                }
+            }
+            
+            // Start a new round (same player symbols)
+            function startNewRound() {
+                initGame();
+            }
+            
+            // Highlight the winning cells
+            function highlightWinningCells(cellIndexes) {
+                cellIndexes.forEach(index => {
+                    cells[index].classList.add('win');
+                });
+            }
+            
+            // Update game status message
+            function updateStatus(message) {
+                status.textContent = message;
+                
+                // Add animation effect
+                status.style.transform = 'scale(1.1)';
+                setTimeout(() => {
+                    status.style.transform = 'scale(1)';
+                }, 200);
+            }
+            
+            // Reset the entire game (including scores)
+            function resetGame() {
+                playerScore = 0;
+                computerScore = 0;
+                drawScore = 0;
+                playerScoreEl.textContent = '0';
+                computerScoreEl.textContent = '0';
+                drawScoreEl.textContent = '0';
+                
+                // Show player selection modal again
+                playerSelectModal.classList.add('active');
+                updateStatus("Choose X or O to begin");
+            }
+            
+            // Event listeners
+            resetBtn.addEventListener('click', resetGame);
+            
+            // Player selection
+            xBtn.addEventListener('click', () => {
+                playerSymbol = 'x';
+                computerSymbol = 'o';
+                playerSelectModal.classList.remove('active');
+                initGame();
+            });
+            
+            oBtn.addEventListener('click', () => {
+                playerSymbol = 'o';
+                computerSymbol = 'x';
+                playerSelectModal.classList.remove('active');
+                initGame();
+            });
+            
+            // Cell click handling
+            cells.forEach(cell => {
+                cell.addEventListener('click', handleCellClick);
+            });
+        });
+    </script>
+</body>
+</html>
