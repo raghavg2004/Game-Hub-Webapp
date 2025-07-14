@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="shortcut icon" type="x-icon" href="../game-icon/chess.png">
     <title>Dark Chess AI</title>
     <style>
         :root {
@@ -76,6 +75,13 @@
             justify-content: center;
             cursor: pointer;
             transition: all 0.2s ease;
+            font-size: 2.5vw;
+        }
+
+        @media (min-width: 600px) {
+            .square {
+                font-size: 1.5rem;
+            }
         }
 
         .square.white {
@@ -103,13 +109,24 @@
         }
 
         .piece {
-            width: 80%;
-            height: 80%;
-            background-size: contain;
-            background-repeat: no-repeat;
-            background-position: center;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             z-index: 2;
             transition: transform 0.2s ease;
+            font-weight: bold;
+        }
+
+        .piece.white {
+            color: #fff;
+            text-shadow: 0 0 3px rgba(0,0,0,0.8);
+        }
+
+        .piece.black {
+            color: #000;
+            text-shadow: 0 0 3px rgba(255,255,255,0.5);
         }
 
         .piece.dragging {
@@ -285,6 +302,26 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Chess piece Unicode characters
+            const pieceSymbols = {
+                white: {
+                    king: '♔',
+                    queen: '♕',
+                    rook: '♖',
+                    bishop: '♗',
+                    knight: '♘',
+                    pawn: '♙'
+                },
+                black: {
+                    king: '♚',
+                    queen: '♛',
+                    rook: '♜',
+                    bishop: '♝',
+                    knight: '♞',
+                    pawn: '♟'
+                }
+            };
+
             // Game state
             const gameState = {
                 board: [],
@@ -410,10 +447,8 @@
                         const piece = gameState.board[row][col];
                         if (piece) {
                             const pieceElement = document.createElement('div');
-                            pieceElement.className = 'piece';
-                            pieceElement.dataset.type = piece.type;
-                            pieceElement.dataset.color = piece.color;
-                            pieceElement.style.backgroundImage = `url('data:image/svg+xml;utf8,${getPieceSVG(piece.type, piece.color)}')`;
+                            pieceElement.className = `piece ${piece.color}`;
+                            pieceElement.textContent = pieceSymbols[piece.color][piece.type];
                             
                             // Highlight selected piece
                             if (gameState.selectedSquare && 
@@ -429,38 +464,6 @@
                         boardElement.appendChild(square);
                     }
                 }
-            }
-
-            function getPieceSVG(type, color) {
-                const pieces = {
-                    king: {
-                        white: 'M22.5,11.63V6M20,8H25M22.5,25S27,20.5,25.5,19.5S21,18,21,16S22,10,16,10S10,12,10,15S11,19.5,9.5,20.5S7,25,7,25H10V22H13V25H16V22H19V25H22.5M17.5,19.5H14.5V17.5H17.5V19.5Z',
-                        black: 'M22.5,11.63V6M20,8H25M22.5,25S27,20.5,25.5,19.5S21,18,21,16S22,10,16,10S10,12,10,15S11,19.5,9.5,20.5S7,25,7,25H10V22H13V25H16V22H19V25H22.5M17.5,19.5H14.5V17.5H17.5V19.5Z'
-                    },
-                    queen: {
-                        white: 'M18,16A2,2 0 0,1 20,18A2,2 0 0,1 18,20A2,2 0 0,1 16,18A2,2 0 0,1 18,16M12,16A2,2 0 0,1 14,18A2,2 0 0,1 12,20A2,2 0 0,1 10,18A2,2 0 0,1 12,16M6,16A2,2 0 0,1 8,18A2,2 0 0,1 6,20A2,2 0 0,1 4,18A2,2 0 0,1 6,16M18,10A2,2 0 0,1 20,12A2,2 0 0,1 18,14A2,2 0 0,1 16,12A2,2 0 0,1 18,10M12,10A2,2 0 0,1 14,12A2,2 0 0,1 12,14A2,2 0 0,1 10,12A2,2 0 0,1 12,10M6,10A2,2 0 0,1 8,12A2,2 0 0,1 6,14A2,2 0 0,1 4,12A2,2 0 0,1 6,10M12,6A2,2 0 0,1 14,8A2,2 0 0,1 12,10A2,2 0 0,1 10,8A2,2 0 0,1 12,6M18,6A2,2 0 0,1 20,8A2,2 0 0,1 18,10A2,2 0 0,1 16,8A2,2 0 0,1 18,6M6,6A2,2 0 0,1 8,8A2,2 0 0,1 6,10A2,2 0 0,1 4,8A2,2 0 0,1 6,6Z',
-                        black: 'M18,16A2,2 0 0,1 20,18A2,2 0 0,1 18,20A2,2 0 0,1 16,18A2,2 0 0,1 18,16M12,16A2,2 0 0,1 14,18A2,2 0 0,1 12,20A2,2 0 0,1 10,18A2,2 0 0,1 12,16M6,16A2,2 0 0,1 8,18A2,2 0 0,1 6,20A2,2 0 0,1 4,18A2,2 0 0,1 6,16M18,10A2,2 0 0,1 20,12A2,2 0 0,1 18,14A2,2 0 0,1 16,12A2,2 0 0,1 18,10M12,10A2,2 0 0,1 14,12A2,2 0 0,1 12,14A2,2 0 0,1 10,12A2,2 0 0,1 12,10M6,10A2,2 0 0,1 8,12A2,2 0 0,1 6,14A2,2 0 0,1 4,12A2,2 0 0,1 6,10M12,6A2,2 0 0,1 14,8A2,2 0 0,1 12,10A2,2 0 0,1 10,8A2,2 0 0,1 12,6M18,6A2,2 0 0,1 20,8A2,2 0 0,1 18,10A2,2 0 0,1 16,8A2,2 0 0,1 18,6M6,6A2,2 0 0,1 8,8A2,2 0 0,1 6,10A2,2 0 0,1 4,8A2,2 0 0,1 6,6Z'
-                    },
-                    rook: {
-                        white: 'M5,16V19H8V16H5M10,16V19H13V16H10M15,16V19H18V16H15M5,11V14H8V11H5M10,11V14H13V11H10M15,11V14H18V11H15M5,6V9H8V6H5M10,6V9H13V6H10M15,6V9H18V6H15Z',
-                        black: 'M5,16V19H8V16H5M10,16V19H13V16H10M15,16V19H18V16H15M5,11V14H8V11H5M10,11V14H13V11H10M15,11V14H18V11H15M5,6V9H8V6H5M10,6V9H13V6H10M15,6V9H18V6H15Z'
-                    },
-                    bishop: {
-                        white: 'M19,22H5V20H19V22M17.16,8.26C17.16,8.26 16.18,7.29 15.53,6.64C14.88,5.99 14.88,5 15.53,4.35L16.24,3.64C16.89,2.99 17.88,2.99 18.53,3.64L19.24,4.35C19.89,5 19.89,5.99 19.24,6.64L18.54,7.34C17.89,7.99 17.16,8.26 17.16,8.26M14.47,9.91L11.5,12.88L9.5,10.88L12.47,7.91L13.18,7.2C13.83,6.55 14.82,6.55 15.47,7.2L16.18,7.91C16.83,8.56 16.83,9.55 16.18,10.2L15.47,10.91L14.47,9.91M8.5,11.91L5.53,14.88L3.5,12.88L6.47,9.91L7.18,9.2C7.83,8.55 8.82,8.55 9.47,9.2L10.18,9.91C10.83,10.56 10.83,11.55 10.18,12.2L9.47,12.91L8.5,11.91M15.53,13.91L12.56,16.88L10.56,14.88L13.53,11.91L14.24,11.2C14.89,10.55 15.88,10.55 16.53,11.2L17.24,11.91C17.89,12.56 17.89,13.55 17.24,14.2L16.53,14.91L15.53,13.91Z',
-                        black: 'M19,22H5V20H19V22M17.16,8.26C17.16,8.26 16.18,7.29 15.53,6.64C14.88,5.99 14.88,5 15.53,4.35L16.24,3.64C16.89,2.99 17.88,2.99 18.53,3.64L19.24,4.35C19.89,5 19.89,5.99 19.24,6.64L18.54,7.34C17.89,7.99 17.16,8.26 17.16,8.26M14.47,9.91L11.5,12.88L9.5,10.88L12.47,7.91L13.18,7.2C13.83,6.55 14.82,6.55 15.47,7.2L16.18,7.91C16.83,8.56 16.83,9.55 16.18,10.2L15.47,10.91L14.47,9.91M8.5,11.91L5.53,14.88L3.5,12.88L6.47,9.91L7.18,9.2C7.83,8.55 8.82,8.55 9.47,9.2L10.18,9.91C10.83,10.56 10.83,11.55 10.18,12.2L9.47,12.91L8.5,11.91M15.53,13.91L12.56,16.88L10.56,14.88L13.53,11.91L14.24,11.2C14.89,10.55 15.88,10.55 16.53,11.2L17.24,11.91C17.89,12.56 17.89,13.55 17.24,14.2L16.53,14.91L15.53,13.91Z'
-                    },
-                    knight: {
-                        white: 'M19,3H5V5H7V8H5V10H7L8,13H5V15H8L10,20H14L12,15H15L16,13H13L12,10H19V8H16V5H19V3Z',
-                        black: 'M19,3H5V5H7V8H5V10H7L8,13H5V15H8L10,20H14L12,15H15L16,13H13L12,10H19V8H16V5H19V3Z'
-                    },
-                    pawn: {
-                        white: 'M19,22H5V20H19V22M16,18H8L10,9H14L16,18Z',
-                        black: 'M19,22H5V20H19V22M16,18H8L10,9H14L16,18Z'
-                    }
-                };
-
-                const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="${color === 'white' ? '#ffffff' : '#000000'}">${pieces[type][color]}</svg>`;
-                return encodeURIComponent(svg);
             }
 
             function handleSquareClick(row, col) {
