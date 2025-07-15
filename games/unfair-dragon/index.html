@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <link rel="shortcut icon" type="x-icon" href="./assets/player-right.png">
+  <title>Unfair Dragon</title>
+  <style>
+    body {
+    text-align: center;
+    background: #111;
+    color: #fff;
+    font-family: 'Segoe UI', sans-serif;
+  }
+  
+  #gameCanvas {
+    border: 4px solid #fff;
+    background-image: url("assets/bg.png");
+    background-size: cover;
+  }
+  
+  #buttons button {
+    margin: 10px;
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    background: #ff5555;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    transition: all 0.3s;
+  }
+  
+  #buttons button:hover {
+    background: #ff0000;
+    transform: scale(1.05);
+  }
+  
+  #buttons button:active {
+    transform: scale(0.95);
+  }
+  
+  #timer {
+    color: #ff5555;
+    font-size: 20px;
+    font-weight: bold;
+  }
+  </style>
+</head>
+<body>
+  <h1>😈 Unfair Dragon</h1>
+  <p id="score">Score: 0</p>
+  <p id="timer">Time: 60</p>
+  <div id="buttons">
+    <button onclick="startGame()">Start (Good Luck!)</button>
+    <button onclick="pauseGame()">Pause</button>
+    <button onclick="stopGame()">Give Up</button>
+  </div>
+  <canvas id="gameCanvas" width="800" height="400"></canvas>
+
+  <!-- Sounds -->
+  <audio id="bgMusic" loop src="assets/bg-music.mp3"></audio>
+  <audio id="coinSound" src="assets/coin.wav"></audio>
+  <audio id="hitSound" src="assets/hit.wav"></audio>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+const bgMusic = document.getElementById("bgMusic");
+const coinSound = document.getElementById("coinSound");
+const hitSound = document.getElementById("hitSound");
+
+let gameInterval, gameRunning = false, score = 0;
+const gravity = 0.6;
+
+function loadImage(src) {
+  const img = new Image();
+  img.src = src;
+  return img;
+}
+
+class Sprite {
+  constructor(x, y, w, h, src) {
+    this.x = x;
+    this.y = y;
+    this.w = w;
+    this.h = h;
+    this.img = loadImage(src);
+  }
+
+  draw() {
+    ctx.drawImage(this.img, this.x, this.y, this.w, this.h);
+  }
+}
+
+class Player extends Sprite {
+  constructor() {
+    super(50, 300, 40, 40, "assets/player-right.png");
+    this.vx = 0;
+    this.vy = 0;
+    this.speed = 4;
+    this.jumpForce = -10;
+    this.grounded = false;
+    this.facing = "right";
+    // Add frustration factor - random jump height
+    this.randomJumpFactor = () => Math.random() > 0.7 ? 0.8 : 1.2;
+  }
+
+  update(platforms) {
+    // Make controls slightly unresponsive
+    if (Math.random() > 0.1) { // 10% chance to ignore input
+      this.vx = 0;
+      if (keys.left) {
+        this.vx = -this.speed * (Math.random() > 0.8 ? 0.7 : 1); // Sometimes slower
+        this.face("left");
+      }
+      if (keys.right) {
+        this.vx = this.speed * (Math.random() > 0.8 ? 0.7 : 1); // Sometimes slower
+        this.face("right");
+      }
+    }
+
+    this.vy += gravity;
+    this.x += this.vx;
+    this.y += this.vy;
+
+    // Boundary limits
+    if (this.x < 0) this.x = 0;
+    if (this.x + this.w > canvas.width) this.x = canvas.width - this.w;
+
+    this.grounded = false;
+    for (let p of platforms) {
+      if (
+        this.x < p.x + p.w &&
+        this.x + this.w > p.x &&
+        this.y + this.h <= p.y + 10 &&
+        this.y + this.h + this.vy >= p.y
+      ) {
+        // Random platform slippage
+        if (Math.random() > 0.9 && p.slippery) {
+          this.vx *= 1.5;
+        } else {
+          this.vy = 0;
+          this.y = p.y - this.h;
+          this.grounded = true;
+        }
+      }
+    }
+
+    this.draw();
+  }
+
+  jump() {
+    if (this.grounded) {
+      this.vy = this.jumpForce * this.randomJumpFactor(); // Unpredictable jump height
+      // 5% chance to not jump at all
+      if (Math.random() < 0.05) this.vy = 0;
+    }
+  }
+
+  face(direction) {
+    if (direction !== this.facing) {
+      this.facing = direction;
+      this.img = loadImage(
+        direction === "right" ? "assets/player-right.png" : "assets/player-left.png"
+      );
+    }
+  }
+}
+
+class Platform extends Sprite {
+  constructor(x, y, w, h, src, slippery = false) {
+    super(x, y, w, h, src);
+    this.slippery = slippery;
+    // 20% chance to be invisible
+    this.invisible = Math.random() < 0.2;
+    this.fake = Math.random() < 0.1; // 10% chance to be fake (fall through)
+  }
+
+  draw() {
+    if (!this.invisible) {
+      ctx.globalAlpha = this.fake ? 0.6 : 1.0;
+      super.draw();
+      ctx.globalAlpha = 1.0;
+    }
+  }
+}
+
+class Coin extends Sprite {
+  constructor(x, y) {
+    super(x, y, 20, 20, "assets/coin.png");
+    this.collected = false;
+    this.fake = Math.random() < 0.3; // 30% chance to be fake
+  }
+
+  draw() {
+    if (!this.collected) {
+      ctx.globalAlpha = this.fake ? 0.7 : 1.0;
+      super.draw();
+      ctx.globalAlpha = 1.0;
+    }
+  }
+
+  check(player) {
+    if (
+      !this.collected &&
+      player.x < this.x + this.w &&
+      player.x + player.w > this.x &&
+      player.y < this.y + this.h &&
+      player.y + player.h > this.y
+    ) {
+      this.collected = true;
+      if (this.fake) {
+        hitSound.play();
+        score -= 15; // Penalty for fake coins
+      } else {
+        coinSound.play();
+        score += 10;
+      }
+      document.getElementById("score").textContent = "Score: " + score;
+    }
+  }
+}
+
+class Enemy extends Sprite {
+  constructor(x, y, range) {
+    super(x, y, 30, 30, "assets/enemy.png");
+    this.vx = 1.5 * (Math.random() > 0.5 ? 1 : -1); // Random initial direction
+    this.range = range;
+    this.originX = x;
+    // Random speed changes
+    this.speedVariation = Math.random() * 0.5 + 0.8; // 0.8 to 1.3
+    // Random jump ability
+    this.canJump = Math.random() > 0.7;
+    this.jumpTimer = 0;
+  }
+
+  update() {
+    // Random speed changes
+    if (Math.random() > 0.98) {
+      this.vx = (Math.random() > 0.5 ? 1.5 : -1.5) * this.speedVariation;
+    }
+    
+    this.x += this.vx;
+    
+    // Random jumps
+    if (this.canJump && this.jumpTimer <= 0 && Math.random() > 0.99) {
+      this.y -= 50;
+      this.jumpTimer = 60;
+    }
+    if (this.jumpTimer > 0) this.jumpTimer--;
+    
+    if (this.x > this.originX + this.range || this.x < this.originX - this.range) {
+      // 30% chance to ignore turn around
+      if (Math.random() > 0.3) {
+        this.vx *= -1;
+      }
+    }
+    
+    this.draw();
+  }
+
+  check(player) {
+    if (
+      player.x < this.x + this.w &&
+      player.x + player.w > this.x &&
+      player.y < this.y + this.h &&
+      player.y + player.h > this.y
+    ) {
+      // 5% chance enemy ignores collision
+      if (Math.random() > 0.05) {
+        stopGame();
+        hitSound.play();
+        alert("HAHA! Game Over! Score: " + score);
+      }
+    }
+  }
+}
+
+class Goal extends Sprite {
+  constructor(x, y, w, h, src) {
+    super(x, y, w, h, src);
+    // 10% chance to be fake (kills you)
+    this.fake = Math.random() < 0.1;
+  }
+
+  check(player) {
+    if (
+      player.x < this.x + this.w &&
+      player.x + player.w > this.x &&
+      player.y < this.y + this.h &&
+      player.y + player.h > this.y
+    ) {
+      if (this.fake) {
+        stopGame();
+        hitSound.play();
+        alert("PSYCH! That was a fake goal! Score: " + score);
+      } else {
+        stopGame();
+        alert("CONGRATS! But can you do it again? Final Score: " + score);
+      }
+    }
+  }
+}
+
+// Initialize
+const player = new Player();
+
+// Create unfair platforms
+const platforms = [
+  new Platform(0, 370, 800, 30, "assets/platform.png", Math.random() > 0.7),
+  new Platform(200, 300, 100, 20, "assets/platform.png", Math.random() > 0.7),
+  new Platform(400, 250, 100, 20, "assets/platform.png", Math.random() > 0.7),
+  new Platform(600, 180, 100, 20, "assets/platform.png", Math.random() > 0.7),
+  // Add some tiny platforms
+  new Platform(300, 200, 40, 10, "assets/platform.png", true),
+  new Platform(500, 150, 40, 10, "assets/platform.png", true),
+];
+
+// Create coins with some fakes
+const coins = [
+  new Coin(220, 270),
+  new Coin(420, 220),
+  new Coin(620, 150),
+  new Coin(320, 180), // Probably fake
+  new Coin(520, 130), // Probably fake
+];
+
+// Create unpredictable enemies
+const enemies = [
+  new Enemy(300, 340, 80),
+  new Enemy(560, 340, 80),
+  new Enemy(150, 200, 40), // Flying enemy
+];
+
+// Goal might be fake
+const goal = new Goal(750, 140, 40, 40, "assets/goal.png");
+
+// Add timer pressure
+let timeLeft = 60;
+let timerInterval;
+
+function updateTimer() {
+  timeLeft--;
+  document.getElementById("timer").textContent = `Time: ${timeLeft}`;
+  if (timeLeft <= 0) {
+    stopGame();
+    alert("TIME'S UP! Too slow! Score: " + score);
+  }
+}
+
+// Controls
+let keys = {
+  left: false,
+  right: false
+};
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowRight") keys.right = true;
+  if (e.key === "ArrowLeft") keys.left = true;
+  if (e.key === " " || e.key === "ArrowUp") player.jump();
+});
+
+document.addEventListener("keyup", (e) => {
+  if (e.key === "ArrowRight") keys.right = false;
+  if (e.key === "ArrowLeft") keys.left = false;
+});
+
+function drawGame() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  platforms.forEach(p => {
+    p.draw();
+    // Draw hitbox if invisible
+    if (p.invisible) {
+      ctx.strokeStyle = "rgba(255,0,0,0.3)";
+      ctx.strokeRect(p.x, p.y, p.w, p.h);
+    }
+  });
+  
+  coins.forEach(c => {
+    c.draw();
+    c.check(player);
+  });
+
+  enemies.forEach(e => {
+    e.update();
+    e.check(player);
+  });
+
+  goal.draw();
+  goal.check(player);
+
+  player.update(platforms);
+  
+  // Random environmental hazards
+  if (Math.random() > 0.995) {
+    coins.push(new Coin(
+      Math.random() * canvas.width,
+      Math.random() * canvas.height/2
+    ));
+  }
+}
+
+function startGame() {
+  if (!gameRunning) {
+    gameInterval = setInterval(drawGame, 1000 / 60);
+    timerInterval = setInterval(updateTimer, 1000);
+    bgMusic.play();
+    gameRunning = true;
+    timeLeft = 60;
+    document.getElementById("timer").textContent = `Time: ${timeLeft}`;
+  }
+}
+
+function pauseGame() {
+  clearInterval(gameInterval);
+  clearInterval(timerInterval);
+  bgMusic.pause();
+  gameRunning = false;
+}
+
+function stopGame() {
+  clearInterval(gameInterval);
+  clearInterval(timerInterval);
+  bgMusic.pause();
+  bgMusic.currentTime = 0;
+  gameRunning = false;
+  score = 0;
+  document.getElementById("score").textContent = "Score: 0";
+  player.x = 50;
+  player.y = 300;
+  timeLeft = 60;
+  document.getElementById("timer").textContent = `Time: ${timeLeft}`;
+}
+  </script>
+</body>
+</html>
