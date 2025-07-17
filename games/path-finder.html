@@ -25,6 +25,7 @@
             padding: 0;
             box-sizing: border-box;
             font-family: 'Courier New', monospace;
+            touch-action: manipulation;
         }
 
         body {
@@ -148,6 +149,7 @@
             box-shadow: 
                 inset 0 0 20px rgba(0, 0, 0, 0.5),
                 0 0 20px rgba(0, 0, 0, 0.3);
+            touch-action: none;
         }
 
         .maze {
@@ -279,6 +281,66 @@
             color: white;
         }
 
+        /* Mobile Controls */
+        .mobile-controls {
+            display: none;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 10px;
+            width: 200px;
+            height: 200px;
+            margin-top: 20px;
+            position: relative;
+        }
+
+        .mobile-btn {
+            background-color: rgba(110, 69, 226, 0.3);
+            border: 2px solid var(--primary);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text);
+            font-size: 1.5rem;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+            transition: all 0.2s ease;
+        }
+
+        .mobile-btn:active {
+            background-color: var(--primary);
+            transform: scale(0.95);
+        }
+
+        .mobile-btn.up {
+            grid-column: 2;
+            grid-row: 1;
+        }
+
+        .mobile-btn.down {
+            grid-column: 2;
+            grid-row: 3;
+        }
+
+        .mobile-btn.left {
+            grid-column: 1;
+            grid-row: 2;
+        }
+
+        .mobile-btn.right {
+            grid-column: 3;
+            grid-row: 2;
+        }
+
+        .mobile-center {
+            grid-column: 2;
+            grid-row: 2;
+            background-color: transparent;
+            border: none;
+            pointer-events: none;
+        }
+
         .message {
             position: fixed;
             top: 50%;
@@ -359,33 +421,12 @@
             font-family: monospace;
         }
 
-        @media (max-width: 768px) {
-            h1 {
-                font-size: 2rem;
-            }
-
-            .game-info span {
-                font-size: 0.9rem;
-            }
-
-            .controls {
-                flex-direction: column;
-                gap: 10px;
-            }
-
-            .btn {
-                width: 100%;
-                padding: 12px;
-            }
-
-            .message {
-                width: 90%;
-                padding: 20px;
-            }
-
-            .message h2 {
-                font-size: 1.5rem;
-            }
+        /* Swipe instructions for mobile */
+        .swipe-hint {
+            display: none;
+            margin-top: 10px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
         }
 
         /* Pixel art decorations */
@@ -420,6 +461,44 @@
             0%, 100% { transform: translateY(0) rotate(0deg); }
             50% { transform: translateY(-20px) rotate(5deg); }
         }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2rem;
+            }
+
+            .game-info span {
+                font-size: 0.9rem;
+            }
+
+            .controls {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .btn {
+                width: 100%;
+                padding: 12px;
+            }
+
+            .message {
+                width: 90%;
+                padding: 20px;
+            }
+
+            .message h2 {
+                font-size: 1.5rem;
+            }
+
+            /* Show mobile controls on small screens */
+            .mobile-controls {
+                display: grid;
+            }
+
+            .swipe-hint {
+                display: block;
+            }
+        }
     </style>
 </head>
 <body>
@@ -437,8 +516,16 @@
             <span class="moves-info">Moves: <span id="moves">0</span></span>
         </div>
 
-        <div class="maze-container">
+        <div class="maze-container" id="maze-container">
             <div class="maze" id="maze"></div>
+        </div>
+
+        <div class="mobile-controls" id="mobile-controls">
+            <div class="mobile-btn up" id="up-btn">↑</div>
+            <div class="mobile-btn down" id="down-btn">↓</div>
+            <div class="mobile-btn left" id="left-btn">←</div>
+            <div class="mobile-btn right" id="right-btn">→</div>
+            <div class="mobile-center"></div>
         </div>
 
         <div class="controls">
@@ -449,6 +536,7 @@
         <div class="instructions">
             Use <span class="key-hint">WASD</span> or <span class="key-hint">↑↓←→</span> keys to move from <span style="color: var(--success)">start</span> 
             to <span style="color: var(--error)">end</span>. Avoid <span style="color: var(--wall)">walls</span>.
+            <div class="swipe-hint">Or swipe on the maze to move</div>
         </div>
     </div>
 
@@ -475,11 +563,13 @@
                 visited: new Set(),
                 solution: [],
                 solving: false,
-                keyState: {}
+                keyState: {},
+                touchStart: null
             };
 
             // DOM elements
             const mazeElement = document.getElementById('maze');
+            const mazeContainer = document.getElementById('maze-container');
             const levelElement = document.getElementById('level');
             const movesElement = document.getElementById('moves');
             const resetButton = document.getElementById('reset');
@@ -489,6 +579,10 @@
             const messageText = document.getElementById('message-text');
             const nextLevelButton = document.getElementById('next-level');
             const overlay = document.getElementById('overlay');
+            const upBtn = document.getElementById('up-btn');
+            const downBtn = document.getElementById('down-btn');
+            const leftBtn = document.getElementById('left-btn');
+            const rightBtn = document.getElementById('right-btn');
 
             // Key codes for movement
             const KEY_CODES = {
@@ -507,6 +601,17 @@
             nextLevelButton.addEventListener('click', nextLevel);
             document.addEventListener('keydown', handleKeyDown);
             document.addEventListener('keyup', handleKeyUp);
+            
+            // Mobile controls
+            upBtn.addEventListener('touchstart', () => movePlayer(0, -1));
+            downBtn.addEventListener('touchstart', () => movePlayer(0, 1));
+            leftBtn.addEventListener('touchstart', () => movePlayer(-1, 0));
+            rightBtn.addEventListener('touchstart', () => movePlayer(1, 0));
+            
+            // Touch events for swipe controls
+            mazeContainer.addEventListener('touchstart', handleTouchStart, { passive: false });
+            mazeContainer.addEventListener('touchmove', handleTouchMove, { passive: false });
+            mazeContainer.addEventListener('touchend', handleTouchEnd);
 
             // Initialize game
             function initGame() {
@@ -716,6 +821,77 @@
                     return; // Not a movement key
                 }
                 
+                movePlayer(dx, dy);
+            }
+
+            // Handle key up
+            function handleKeyUp(e) {
+                gameState.keyState[e.code] = false;
+            }
+
+            // Handle touch start for swipe controls
+            function handleTouchStart(e) {
+                if (gameState.solving) {
+                    e.preventDefault();
+                    return;
+                }
+                gameState.touchStart = {
+                    x: e.touches[0].clientX,
+                    y: e.touches[0].clientY,
+                    time: Date.now()
+                };
+            }
+
+            // Handle touch move for swipe controls
+            function handleTouchMove(e) {
+                if (!gameState.touchStart || gameState.solving) {
+                    e.preventDefault();
+                    return;
+                }
+                e.preventDefault();
+            }
+
+            // Handle touch end for swipe controls
+            function handleTouchEnd(e) {
+                if (!gameState.touchStart || gameState.solving) return;
+                
+                const touchEnd = {
+                    x: e.changedTouches[0].clientX,
+                    y: e.changedTouches[0].clientY,
+                    time: Date.now()
+                };
+                
+                const dx = touchEnd.x - gameState.touchStart.x;
+                const dy = touchEnd.y - gameState.touchStart.y;
+                const dt = touchEnd.time - gameState.touchStart.time;
+                
+                // Only consider it a swipe if it's quick enough
+                if (dt < 500) {
+                    // Determine primary direction
+                    if (Math.abs(dx) > Math.abs(dy)) {
+                        // Horizontal swipe
+                        if (dx > 0) {
+                            movePlayer(1, 0); // Right
+                        } else {
+                            movePlayer(-1, 0); // Left
+                        }
+                    } else {
+                        // Vertical swipe
+                        if (dy > 0) {
+                            movePlayer(0, 1); // Down
+                        } else {
+                            movePlayer(0, -1); // Up
+                        }
+                    }
+                }
+                
+                gameState.touchStart = null;
+            }
+
+            // Move player function (handles both keyboard and touch input)
+            function movePlayer(dx, dy) {
+                if (gameState.solving) return;
+                
                 // Calculate new position
                 const nx = gameState.current.x + dx;
                 const ny = gameState.current.y + dy;
@@ -738,11 +914,6 @@
                     updateLevelInfo();
                     renderMaze();
                 }
-            }
-
-            // Handle key up
-            function handleKeyUp(e) {
-                gameState.keyState[e.code] = false;
             }
 
             // Show solution path
